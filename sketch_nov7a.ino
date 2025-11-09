@@ -2,15 +2,20 @@
 #include <Wire.h>
 #include "rgb_lcd.h"
 
-#define AVG_WINDOW 8
+#define HR_AVG_WINDOW 8
+#define SPO2_AVG_WINDOW 4
 #define SAFE_HR_MAX 110
 #define SAFE_HR_MIN 40
 
 // Global Scope Variables
-int hrBuffer[AVG_WINDOW]{};
+int hrBuffer[HR_AVG_WINDOW]{};
 int hrIndex{};
-bool bufferFilled{};
+int spo2Buffer[SPO2_AVG_WINDOW]{};
+int spo2Index{};
+bool hrBufferFilled{};
+bool spo2BufferFilled{};
 uint32_t avgHR{};
+uint32_t avgSpO2{};
 DFRobot_MAX30102 oximeter;
 rgb_lcd lcd;
 const int colorR{255};
@@ -19,6 +24,7 @@ const int colorB{255};
 
 // Function Declarations
 void addHeartRate(int hr);
+void addSpO2(int spo2);
 uint32_t getAverageHR();
 void readAndDisplayData();
 
@@ -38,7 +44,7 @@ void setup() {
   }
 
   oximeter.sensorConfiguration(
-    128, SAMPLEAVG_8, MODE_MULTILED, SAMPLERATE_400, 
+    255, SAMPLEAVG_8, MODE_MULTILED, SAMPLERATE_200, 
     PULSEWIDTH_411, ADCRANGE_16384
   );
 
@@ -55,18 +61,34 @@ void loop() {
 // Add Measured Heart Rate Into the Heart Rate Buffer
 void addHeartRate(int hr) {
   hrBuffer[hrIndex] = hr;
-  hrIndex = (hrIndex + 1) % AVG_WINDOW;
-  if (hrIndex == 0) bufferFilled = true;
+  hrIndex = (hrIndex + 1) % HR_AVG_WINDOW;
+  if (hrIndex == 0) hrBufferFilled = true;
+
+  return;
+}
+
+void addSpO2(int spo2) {
+  spo2Buffer[spo2Index] = spo2;
+  spo2Index = (spo2Index + 1) % SPO2_AVG_WINDOW;
+  if (spo2Index == 0) spo2BufferFilled = true;
 
   return;
 }
 
 // Get The Average Of All Valid Values In The Buffer
 uint32_t getAverageHR() {
-  int count{bufferFilled  ? AVG_WINDOW : hrIndex};
+  int count{hrBufferFilled  ? HR_AVG_WINDOW : hrIndex};
   if (count == 0) return 0;
   uint32_t sum{};
   for (int i{}; i<count; i++) sum += hrBuffer[i];
+  return sum/count;
+}
+
+uint32_t getAverageSpO2() {
+  int count{spo2BufferFilled ? SPO2_AVG_WINDOW : spo2Index};
+  if (count == 0) return 0;
+  uint32_t sum{};
+  for (int i{};i<count; i++) sum += spo2Buffer[i];
   return sum/count;
 }
 
@@ -90,8 +112,14 @@ void readAndDisplayData() {
 
     lcd.setCursor(0, 1);
     if (spo2Valid) {
+      addSpO2(spo2);
+      avgSpO2 = getAverageSpO2();
+
+      Serial.print("SpO2: "); Serial.print(spo2);
+      Serial.print(" | Smoothed SpO2: "); Serial.println(avgSpO2);
+
       lcd.print("SpO2: ");
-      lcd.print(spo2);
+      lcd.print(avgSpO2);
       lcd.print(" %");
     } else {
       lcd.print("Measuring SpO2%");
