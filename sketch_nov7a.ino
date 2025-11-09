@@ -7,13 +7,11 @@
 #define SAFE_HR_MIN 40
 
 // Global Scope Variables
-int touchSensorPin{4};
 int hrBuffer[AVG_WINDOW]{};
 int hrIndex{};
 bool bufferFilled{};
 uint32_t avgHR{};
 DFRobot_MAX30102 oximeter;
-bool oximeterState{};
 rgb_lcd lcd;
 const int colorR{255};
 const int colorG{255};
@@ -22,48 +20,34 @@ const int colorB{255};
 // Function Declarations
 void addHeartRate(int hr);
 uint32_t getAverageHR();
-void configureSensor();
+void readAndDisplayData();
 
 // Runs Once On Startup
 void setup() {
   Serial.begin(115200);
   Wire.begin();
 
-  configureSensor(true);
+  lcd.begin(16,2);
+  lcd.setRGB(colorR, colorG, colorB);
+  lcd.setCursor(0, 0);
 
   while (!oximeter.begin()) {
-    Serial.println("MAX20102 not found!");
+    Serial.println("MAX30102 not found!");
+    lcd.print("Sensor Not Found!");
     delay(1000);
   }
 
-  pinMode(touchSensorPin, INPUT);
+  oximeter.sensorConfiguration(
+    128, SAMPLEAVG_8, MODE_MULTILED, SAMPLERATE_400, 
+    PULSEWIDTH_411, ADCRANGE_16384
+  );
 
-  lcd.begin(16,2);
-  lcd.setRGB(colorR, colorG, colorB);
-
-  delay(1000);
+  delay(100);
 }
 
 // Runs Continously During Operation
 void loop() {
-  int touchState{digitalRead(touchSensorPin)};
-
-  if (touchState == HIGH && !oximeterState) {
-    configureSensor(true);
-    lcd.clear();
-    lcd.print("Measuring...");
-    oximeterState = true;
-    Serial.println("Oximeter ON");
-  } else if (touchState == LOW && oximeterState) {
-    configureSensor(false);
-    lcd.print("Standby");
-    oximeterState = false;
-    Serial.println("Oximeter OFF");
-  }
-
-  if (oximeterState) {
-    readAndDisplayData();
-  }
+  readAndDisplayData();
 
   delay(100);
 }
@@ -86,20 +70,8 @@ uint32_t getAverageHR() {
   return sum/count;
 }
 
-void configureSensor(bool onState) {
-  if (onState) {
-    oximeter.sensorConfiguration(
-        128, SAMPLEAVG_8, MODE_MULTILED, SAMPLERATE_400, 
-        PULSEWIDTH_411, ADCRANGE_16384);
-  } else {
-    oximeter.sensorConfiguration(
-      0, SAMPLEAVG_1, MODE_REDONLY, SAMPLERATE_50, 
-      PULSEWIDTH_69, ADCRANGE_2048);
-  }
-}
-
 void readAndDisplayData() {
-    int32_t spo2, heartRate;
+  int32_t spo2, heartRate;
   int8_t spo2Valid, heartRateValid;
 
   oximeter.heartrateAndOxygenSaturation(&spo2, &spo2Valid, &heartRate, &heartRateValid);
@@ -108,20 +80,25 @@ void readAndDisplayData() {
     addHeartRate(heartRate);
     avgHR = getAverageHR();
     Serial.print("HR: "); Serial.print(heartRate);
-    Serial.print("Smoothed: "); Serial.println(avgHR);
+    Serial.print(" | Smoothed: "); Serial.println(avgHR);
 
     lcd.clear();
     lcd.setCursor(0, 0);
     lcd.print("HeartRate:");
-    if (avgHR % 10 < 10) lcd.print(" ");
     lcd.print(avgHR);
     lcd.print("bpm");
 
+    lcd.setCursor(0, 1);
     if (spo2Valid) {
-      lcd.setCursor(0, 1);
       lcd.print("SpO2: ");
       lcd.print(spo2);
       lcd.print(" %");
+    } else {
+      lcd.print("Measuring SpO2%");
     }
+  } else {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("Finger Not Found");
   } 
 }
