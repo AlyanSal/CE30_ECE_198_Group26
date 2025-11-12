@@ -7,28 +7,42 @@
 #define HR_AVG_WINDOW 8
 #define SPO2_AVG_WINDOW 2
 #define SOUND_AVG_WINDOW 4
+#define LIGHT_AVG_WINDOW 2
+
 #define SAFE_HR_MAX 110
 #define SAFE_HR_MIN 40
-#define LCD_HEIGHT 2
-#define LCD_WIDTH 16
+
 #define SAFE_SPO2_MIN 85
 #define SAFE_SOUND_MAX 670
+#define SAFE_LIGHT_MAX 800
+
+#define LCD_HEIGHT 2
+#define LCD_WIDTH 16
+
 
 // Global Scope Variables
 int lightSensorPin{A0};
 int soundSensorPin{A1};
+
 int hrBuffer[HR_AVG_WINDOW]{};
 int hrIndex{};
 bool hrBufferFilled{};
 uint32_t avgHR{};
+
 int spo2Buffer[SPO2_AVG_WINDOW]{};
 int spo2Index{};
 bool spo2BufferFilled{};
 uint32_t avgSpO2{};
+
 int soundBuffer[SOUND_AVG_WINDOW]{};
 int soundIndex{};
 bool SoundBifferFilled{};
 uint32_t avgSound{};
+
+int lightBuffer[LIGHT_AVG_WINDOW];
+int lightIndex{};
+bool lightBufferFilled{};
+uint32_t avgLight{};
 
 DFRobot_MAX30102 oximeter;
 rgb_lcd lcd;
@@ -84,11 +98,13 @@ void loop() {
   if (getAverageSpO2() <= SAFE_SPO2_MIN){
     Serial.print("The SPO2 is too low, "); Serial.print(avgSpO2); 
   }
-  if (getAverageSound >= SAFE_SOUND_MAX){
+  if (getAverageSound() >= SAFE_SOUND_MAX){
     Serial.print("The sound is too loud, "); Serial.print(avgSound); 
   }
 
-
+  if (getAverageLight() >= SAFE_LIGHT_MAX ){
+    Serial.print("Its too bright, "); Serial.print(avgLight);
+  }
 
 
   }
@@ -124,12 +140,20 @@ void addSpO2(int spo2) {
 }
 
 void addSound(int sound) {
-  soundBufferBuffer[soundIndex] = sound;
+  soundBuffer[soundIndex] = sound;
   soundIndex = (soundIndex + 1) % SOUND_AVG_WINDOW;
   if (soundIndex == 0) SoundBifferFilled = true;
 
   return;
 }
+
+void addLight(int light) {
+  lightBuffer[lightIndex] = light;
+  lightIndexIndex = (lightIndexIndex + 1) % LIGHT_AVG_WINDOW;
+  if (lightIndex == 0) lightBufferFilled = true;
+  return;
+}
+
 
 
 // Get The Average Of All Valid Values In The Buffer
@@ -154,6 +178,14 @@ uint32_t getAverageSound() {
   if (count == 0) return 0;
   uint32_t sum{};
   for (int i{}; i<count; i++) sum += soundBuffer[i];
+  return sum/count;
+}
+
+uint32_t getAverageLight() {
+  int count{lightBufferFilled ? LIGHT_AVG_WINDOW : lightIndex};
+  if (count == 0) return 0;
+  uint32_t sum{};
+  for (int i{}; i<count; i++) sum += lightBuffer[i];
   return sum/count;
 }
 
