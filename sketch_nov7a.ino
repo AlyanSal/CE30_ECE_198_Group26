@@ -3,11 +3,15 @@
 #include "rgb_lcd.h"
 
 #define HR_AVG_WINDOW 8
-#define SPO2_AVG_WINDOW 4
+#define SPO2_AVG_WINDOW 2
 #define SAFE_HR_MAX 110
 #define SAFE_HR_MIN 40
+#define LCD_HEIGHT 2
+#define LCD_WIDTH 16
 
 // Global Scope Variables
+int lightSensorPin{A0};
+int soundSensorPin{A1};
 int hrBuffer[HR_AVG_WINDOW]{};
 int hrIndex{};
 int spo2Buffer[SPO2_AVG_WINDOW]{};
@@ -27,13 +31,15 @@ void addHeartRate(int hr);
 void addSpO2(int spo2);
 uint32_t getAverageHR();
 void readAndDisplayData();
+void readLight(uint32_t &a);
+void readSound(uint32_t &a);
 
 // Runs Once On Startup
 void setup() {
   Serial.begin(115200);
   Wire.begin();
 
-  lcd.begin(16,2);
+  lcd.begin(LCD_WIDTH, LCD_HEIGHT);
   lcd.setRGB(colorR, colorG, colorB);
   lcd.setCursor(0, 0);
 
@@ -43,8 +49,11 @@ void setup() {
     delay(1000);
   }
 
+  pinMode(lightSensorPin, INPUT);
+  pinMode(soundSensorPin, INPUT);
+
   oximeter.sensorConfiguration(
-    255, SAMPLEAVG_8, MODE_MULTILED, SAMPLERATE_200, 
+    0xff, SAMPLEAVG_8, MODE_MULTILED, SAMPLERATE_200, 
     PULSEWIDTH_411, ADCRANGE_16384
   );
 
@@ -53,9 +62,29 @@ void setup() {
 
 // Runs Continously During Operation
 void loop() {
+  uint32_t light, sound;
+
+  readLight(light);
+  readSound(sound);
+
   readAndDisplayData();
 
+  Serial.print(" | Sound: "); Serial.print(sound);
+  Serial.print(" | Light: "); Serial.println(light);
+
+  if (/*unsafe(temp, press, hr, spo2, sound, light)*/ false)
+
   delay(100);
+}
+
+void readLight(uint32_t& a) {
+  a = analogRead(lightSensorPin);
+  return;
+}
+
+void readSound(uint32_t& a) {
+  a = analogRead(soundSensorPin);
+  return;
 }
 
 // Add Measured Heart Rate Into the Heart Rate Buffer
