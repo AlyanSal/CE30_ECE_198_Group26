@@ -198,8 +198,12 @@ void readAndDisplayData() {
 
   readLight(light);
   readSound(sound);
+
   Serial.print(" | Sound: "); Serial.print(sound);
+  Serial.print(" | Smoothed: "); Serial.println(avgSound);
+
   Serial.print(" | Light: "); Serial.println(light);
+  Serial.print(" | Smoothed: "); Serial.println(avgLight);
 
   if (heartRateValid) {
     addHeartRate(heartRate);
