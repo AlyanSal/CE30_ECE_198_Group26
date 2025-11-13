@@ -2,8 +2,6 @@
 #include <Wire.h>
 #include "rgb_lcd.h"
 
-
-
 #define HR_AVG_WINDOW 8
 #define SPO2_AVG_WINDOW 2
 #define SOUND_AVG_WINDOW 4
@@ -19,7 +17,6 @@
 #define LCD_HEIGHT 2
 #define LCD_WIDTH 16
 
-
 // Global Scope Variables
 int lightSensorPin{A0};
 int soundSensorPin{A1};
@@ -27,22 +24,22 @@ int soundSensorPin{A1};
 int hrBuffer[HR_AVG_WINDOW]{};
 int hrIndex{};
 bool hrBufferFilled{};
-uint32_t avgHR{};
+int32_t avgHR{};
 
 int spo2Buffer[SPO2_AVG_WINDOW]{};
 int spo2Index{};
 bool spo2BufferFilled{};
-uint32_t avgSpO2{};
+int32_t avgSpO2{};
 
 int soundBuffer[SOUND_AVG_WINDOW]{};
 int soundIndex{};
-bool SoundBifferFilled{};
-uint32_t avgSound{};
+bool SoundBufferFilled{};
+int32_t avgSound{};
 
 int lightBuffer[LIGHT_AVG_WINDOW];
 int lightIndex{};
 bool lightBufferFilled{};
-uint32_t avgLight{};
+int32_t avgLight{};
 
 DFRobot_MAX30102 oximeter;
 rgb_lcd lcd;
@@ -51,14 +48,14 @@ const int colorG{255};
 const int colorB{255};
 
 // Function Declarations
-void addValueTo(const uint32_t& val, int buffer[], int size, int& index, bool& isFull);
-void addValues(uint32_t& hr, const uint8_t& hrV, uint32_t& sp, const uint32_t& spV, uint32_t& sound, uint32_t& light);
-void assignAverageFrom(const int buffer[], int size, const int& index, const bool& isFull, uint32_t& output);
+void addValueTo(const int32_t& val, int buffer[], int size, int& index, bool& isFull);
+void addValues(int32_t& hr, const int8_t& hrV, int32_t& sp, const int32_t& spV, int32_t& sound, int32_t& light);
+void getAverageFrom(const int buffer[], int size, const int& index, const bool& isFull, int32_t& output);
 void readAndDisplayData();
-void readData(uint32_t& hr, const uint8_t& hrV, uint32_t& sp, const uint32_t& spV, uint32_t& sound, uint32_t& light);
+void readData(int32_t& hr, const int8_t& hrV, int32_t& sp, const int32_t& spV, int32_t& sound, int32_t& light);
 void displayData();
-void readLight(uint32_t &a);
-void readSound(uint32_t &a);
+void readLight(int32_t &a);
+void readSound(int32_t &a);
 
 // Runs Once On Startup
 void setup() {
@@ -78,7 +75,6 @@ void setup() {
   pinMode(lightSensorPin, INPUT);
   pinMode(soundSensorPin, INPUT);
 
-
   oximeter.sensorConfiguration(
     0xff, SAMPLEAVG_8, MODE_MULTILED, SAMPLERATE_200, 
     PULSEWIDTH_411, ADCRANGE_16384
@@ -89,61 +85,55 @@ void setup() {
 
 // Runs Continously During Operation
 void loop() {
-  uint32_t light, sound;
+  int32_t hr, spo2, light, sound;
+  int8_t hrV, spV;
 
-  readAndDisplayData();
+  readData(hr, hrV, spo2, spV, sound, light);
+
+  if (hrV) avgHR = getAverageFrom(hrBuffer, HR_AVG_WINDOW, hrIndex, hrBufferFilled);
+  if (spV) avgSpO2 = getAverageFrom(spo2Buffer, SPO2_AVG_WINDOW, spo2Index, spo2BufferFilled);
+  avgLight = getAverageFrom(lightBuffer, LIGHT_AVG_WINDOW, lightIndex, lightBufferFilled);
+  avgSound = getAverageFrom(soundBuffer, SOUND_AVG_WINDOW, soundIndex, SoundBufferFilled);
+
+  displayData(hrV, spV);
   // unsafe funcion that just returns true based off "Logical" numbers
     
-  if (SAFE_HR_MIN <= getAverageHR() <= SAFE_HR_MAX){
+  if (SAFE_HR_MIN <= avgHR || avgHR <= SAFE_HR_MAX){
     Serial.print("The heart rate is at a dangerous level, "); Serial.print(avgHR);
   }
-  if (getAverageSpO2() <= SAFE_SPO2_MIN){
+  if (avgSpO2 <= SAFE_SPO2_MIN){
     Serial.print("The SPO2 is too low, "); Serial.print(avgSpO2); 
   }
-  if (getAverageSound() >= SAFE_SOUND_MAX){
+  if (avgSound >= SAFE_SOUND_MAX){
     Serial.print("The sound is too loud, "); Serial.print(avgSound); 
   }
-
-  if (getAverageLight() >= SAFE_LIGHT_MAX ){
+  if (avgLight >= SAFE_LIGHT_MAX ){
     Serial.print("Its too bright, "); Serial.print(avgLight);
-  }
-
-
   }
 
   delay(100);
 }
 
-void readLight(uint32_t& a) {
-  a = analogRead(lightSensorPin);
-  return;
-}
-
-void readSound(uint32_t& a) {
-  a = analogRead(soundSensorPin);
-  return;
-}
-
 // Add Measured Heart Rate Into the Heart Rate Buffer
-void addValues(uint32_t& hr, const uint8_t& hrV, uint32_t& sp, const uint32_t& spV, uint32_t& sound, uint32_t& light) {
+void addValues(int32_t& hr, const int8_t& hrV, int32_t& sp, const int32_t& spV, int32_t& sound, int32_t& light) {
   // Heartrate
   if (hrV)
     addValueTo(hr, hrBuffer, HR_AVG_WINDOW, hrIndex, hrBufferFilled);
 
   // SpO2
   if (spV)
-    addValueTo(sp, spo2Buffer, SPO2_AVG_WINDOW, spo2Index, spo2Buffer);
+    addValueTo(sp, spo2Buffer, SPO2_AVG_WINDOW, spo2Index, spo2BufferFilled);
 
   // Light
   addValueTo(light, lightBuffer, LIGHT_AVG_WINDOW, lightIndex, lightBufferFilled);
 
   // Sound
-  addValueTo(sound, soundBuffer, SOUND_AVG_WINDOW, soundIndex, SoundBifferFilled);
+  addValueTo(sound, soundBuffer, SOUND_AVG_WINDOW, soundIndex, SoundBufferFilled);
 
   return;
 }
 
-void addValueTo(const uint32_t& val, int buffer[], int size, int& index, bool& isFull) {
+void addValueTo(const int32_t& val, int buffer[], int size, int& index, bool& isFull) {
   buffer[index] = val;
   index = (index + 1) % size;
   if (index == 0) isFull = true;
@@ -152,66 +142,54 @@ void addValueTo(const uint32_t& val, int buffer[], int size, int& index, bool& i
 }
 
 // Get The Average Of All Valid Values In The Buffer
-void assignAverageFrom(const int buffer[], int size, const int& index, const bool& isFull, uint32_t& output) {
+int32_t getAverageFrom(const int buffer[], int size, const int& index, const bool& isFull) {
   int count{isFull ? size : index};
   if (count == 0) return 0;
 
-  output = 0;
+  int32_t output{};
   
   for (int i{}; i<count; i++) {
     output += buffer[i];
   }
 
-  output /= count;
+  return output/count;
+}
+
+void readData(int32_t& hr, int8_t& hrV, int32_t& sp, int8_t& spV, int32_t& sound, int32_t& light) {
+  // Heartrate and SPo2
+  oximeter.heartrateAndOxygenSaturation(&sp, &spV, &hr, &hrV);
+
+  // Sound
+  sound = analogRead(soundSensorPin);
+
+  // Light
+  light = analogRead(lightSensorPin);
 
   return;
 }
 
+void displayData(const int8_t& hrV, const int8_t& spV) {
+  lcd.clear();
+  lcd.setCursor(0,0);
+  lcd.print("L: "); lcd.print(avgLight); lcd.print(" | S: "); lcd.println(avgSound);
 
-void readAndDisplayData() {
-  int32_t spo2, heartRate;
-  int8_t spo2Valid, heartRateValid;
+  if (hrV) {
+    avgHR = getAverageFrom(hrBuffer, HR_AVG_WINDOW, hrIndex, hrBufferFilled);
 
-  oximeter.heartrateAndOxygenSaturation(&spo2, &spo2Valid, &heartRate, &heartRateValid);
+    Serial.print("HR: "); Serial.print(avgHR); Serial.print(" & "); Serial.print(hrBuffer[hrIndex]); Serial.print(" | ");
 
-  readLight(light);
-  readSound(sound);
+    lcd.print("HR:"); lcd.print(avgHR);
 
-  Serial.print(" | Sound: "); Serial.print(sound);
-  Serial.print(" | Smoothed: "); Serial.println(avgSound);
+    if (spV) {
+      avgSpO2 = getAverageFrom(spo2Buffer, SPO2_AVG_WINDOW, spo2Index, spo2BufferFilled);
 
-  Serial.print(" | Light: "); Serial.println(light);
-  Serial.print(" | Smoothed: "); Serial.println(avgLight);
+      Serial.print("SpO2: "); Serial.print(avgHR); Serial.print(" & "); Serial.print(hrBuffer[hrIndex]); Serial.print(" | ");
 
-  if (heartRateValid) {
-    addHeartRate(heartRate);
-    avgHR = getAverageHR();
-    Serial.print("HR: "); Serial.print(heartRate);
-    Serial.print(" | Smoothed: "); Serial.println(avgHR);
-
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("HeartRate:");
-    lcd.print(avgHR);
-    lcd.print("bpm");
-
-    lcd.setCursor(0, 1);
-    if (spo2Valid) {
-      addSpO2(spo2);
-      avgSpO2 = getAverageSpO2();
-
-      Serial.print("SpO2: "); Serial.print(spo2);
-      Serial.print(" | Smoothed SpO2: "); Serial.println(avgSpO2);
-
-      lcd.print("SpO2: ");
-      lcd.print(avgSpO2);
-      lcd.print(" %");
+      lcd.print(" | O2:"); lcd.print(avgSpO2);
     } else {
-      lcd.print("Measuring SpO2%");
+      lcd.print(" | O2...");
     }
   } else {
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("Finger Not Found");
-  } 
+    lcd.print("No Finger Found!");
+  }
 }
