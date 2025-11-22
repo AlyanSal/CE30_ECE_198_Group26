@@ -120,13 +120,14 @@ void loop() {
 // Add Measured Heart Rate Into the Heart Rate Buffer
 void addValues(int32_t& hr, const int8_t& hrV, int32_t& sp, const int32_t& spV, int32_t& sound, int32_t& light) {
   // Heartrate
-  if (hrV)
+  if (hrV){
     if (hr > I_HR_FACTOR){
       addValueTo(hr*NORM_F, hrBuffer, HR_AVG_WINDOW, hrIndex, hrBufferFilled);
     }
     else{
     addValueTo(hr, hrBuffer, HR_AVG_WINDOW, hrIndex, hrBufferFilled);
     }
+  }
 
   // SpO2
   if (spV)
