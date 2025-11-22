@@ -90,6 +90,8 @@ void loop() {
 
   readData(hr, hrV, spo2, spV, sound, light);
 
+  addValues(hr, hrV, spo2, spV, sound, light);
+
   if (hrV) avgHR = getAverageFrom(hrBuffer, HR_AVG_WINDOW, hrIndex, hrBufferFilled);
   if (spV) avgSpO2 = getAverageFrom(spo2Buffer, SPO2_AVG_WINDOW, spo2Index, spo2BufferFilled);
   avgLight = getAverageFrom(lightBuffer, LIGHT_AVG_WINDOW, lightIndex, lightBufferFilled);
@@ -98,10 +100,10 @@ void loop() {
   displayData(hrV, spV);
   // unsafe funcion that just returns true based off "Logical" numbers
     
-  if (SAFE_HR_MIN <= avgHR || avgHR <= SAFE_HR_MAX){
+  if (hrV && (SAFE_HR_MIN > avgHR || avgHR > SAFE_HR_MAX)){
     Serial.print("The heart rate is at a dangerous level, "); Serial.print(avgHR);
   }
-  if (avgSpO2 <= SAFE_SPO2_MIN){
+  if (spV && avgSpO2 <= SAFE_SPO2_MIN){
     Serial.print("The SPO2 is too low, "); Serial.print(avgSpO2); 
   }
   if (avgSound >= SAFE_SOUND_MAX){
@@ -171,7 +173,9 @@ void readData(int32_t& hr, int8_t& hrV, int32_t& sp, int8_t& spV, int32_t& sound
 void displayData(const int8_t& hrV, const int8_t& spV) {
   lcd.clear();
   lcd.setCursor(0,0);
-  lcd.print("L: "); lcd.print(avgLight); lcd.print(" | S: "); lcd.println(avgSound);
+  lcd.print("L: "); lcd.print(avgLight); lcd.print(" | S: "); lcd.print(avgSound);
+
+  lcd.setCursor(0, 1);
 
   if (hrV) {
     avgHR = getAverageFrom(hrBuffer, HR_AVG_WINDOW, hrIndex, hrBufferFilled);
@@ -192,4 +196,6 @@ void displayData(const int8_t& hrV, const int8_t& spV) {
   } else {
     lcd.print("No Finger Found!");
   }
+
+  Serial.println("");
 }
