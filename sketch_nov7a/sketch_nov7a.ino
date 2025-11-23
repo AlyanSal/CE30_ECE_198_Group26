@@ -93,6 +93,8 @@ void loop() {
 
   readData(hr, hrV, spo2, spV, sound, light);
 
+  addValues(hr, hrV, spo2, spV, sound, light);
+
   if (hrV) avgHR = getAverageFrom(hrBuffer, HR_AVG_WINDOW, hrIndex, hrBufferFilled);
   if (spV) avgSpO2 = getAverageFrom(spo2Buffer, SPO2_AVG_WINDOW, spo2Index, spo2BufferFilled);
   avgLight = getAverageFrom(lightBuffer, LIGHT_AVG_WINDOW, lightIndex, lightBufferFilled);
