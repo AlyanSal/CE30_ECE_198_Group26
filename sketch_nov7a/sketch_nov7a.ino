@@ -18,7 +18,7 @@
 #define LCD_WIDTH 16
 
 #define I_HR_FACTOR 130
-#define NORM_F 6/10
+#define NORM_F 0.6
 
 // Global Scope Variables
 int lightSensorPin{A0};
@@ -50,15 +50,15 @@ const int colorR{255};
 const int colorG{255};
 const int colorB{255};
 
-// Function Declarations
-void addValueTo(const int32_t& val, int buffer[], int size, int& index, bool& isFull);
-void addValues(int32_t& hr, const int8_t& hrV, int32_t& sp, const int32_t& spV, int32_t& sound, int32_t& light);
-void getAverageFrom(const int buffer[], int size, const int& index, const bool& isFull, int32_t& output);
-void readAndDisplayData();
-void readData(int32_t& hr, const int8_t& hrV, int32_t& sp, const int32_t& spV, int32_t& sound, int32_t& light);
-void displayData();
-void readLight(int32_t &a);
-void readSound(int32_t &a);
+// // Function Declarations
+// void addValueTo(const int32_t& val, int buffer[], int size, int& index, bool& isFull);
+// void addValues(int32_t& hr, const int8_t& hrV, int32_t& sp, const int32_t& spV, int32_t& sound, int32_t& light);
+// int32_t getAverageFrom(const int buffer[], int size, const int& index, const bool& isFull, int32_t& output);
+// void readAndDisplayData();
+// void readData(int32_t& hr, int8_t& hrV, int32_t& sp, int8_t& spV, int32_t& sound, int32_t& light);
+// void displayData();
+// void readLight(int32_t &a);
+// void readSound(int32_t &a);
 
 // Runs Once On Startup
 void setup() {
@@ -100,10 +100,10 @@ void loop() {
   avgLight = getAverageFrom(lightBuffer, LIGHT_AVG_WINDOW, lightIndex, lightBufferFilled);
   avgSound = getAverageFrom(soundBuffer, SOUND_AVG_WINDOW, soundIndex, SoundBufferFilled);
 
-  displayData(hrV, spV);
+  displayData(hr, hrV, spo2, spV);
   // unsafe funcion that just returns true based off "Logical" numbers
     
-  if (SAFE_HR_MIN <= avgHR || avgHR <= SAFE_HR_MAX){
+  if (SAFE_HR_MIN > avgHR || avgHR > SAFE_HR_MAX){
     Serial.print("The heart rate is at a dangerous level, "); Serial.print(avgHR);
   }
   if (avgSpO2 <= SAFE_SPO2_MIN){
@@ -124,7 +124,7 @@ void addValues(int32_t& hr, const int8_t& hrV, int32_t& sp, const int32_t& spV, 
   // Heartrate
   if (hrV){
     if (hr > I_HR_FACTOR){
-      addValueTo(hr*NORM_F, hrBuffer, HR_AVG_WINDOW, hrIndex, hrBufferFilled);
+      addValueTo((int32_t)(hr*NORM_F), hrBuffer, HR_AVG_WINDOW, hrIndex, hrBufferFilled);
     }
     else{
     addValueTo(hr, hrBuffer, HR_AVG_WINDOW, hrIndex, hrBufferFilled);
@@ -179,22 +179,20 @@ void readData(int32_t& hr, int8_t& hrV, int32_t& sp, int8_t& spV, int32_t& sound
   return;
 }
 
-void displayData(const int8_t& hrV, const int8_t& spV) {
+void displayData(const int32_t& hr, const int8_t& hrV, const int32_t& spo2, const int8_t& spV) {
   lcd.clear();
   lcd.setCursor(0,0);
-  lcd.print("L: "); lcd.print(avgLight); lcd.print(" | S: "); lcd.println(avgSound);
+  lcd.print("L: "); lcd.print(avgLight); lcd.print(" | S: "); lcd.print(avgSound);
+
+  lcd.setCursor(0,1);
 
   if (hrV) {
-    avgHR = getAverageFrom(hrBuffer, HR_AVG_WINDOW, hrIndex, hrBufferFilled);
-
-    Serial.print("HR: "); Serial.print(avgHR); Serial.print(" & "); Serial.print(hrBuffer[hrIndex]); Serial.print(" | ");
+    Serial.print("HR: "); Serial.print(avgHR); Serial.print(" & "); Serial.print(hr); Serial.print(" | ");
 
     lcd.print("HR:"); lcd.print(avgHR);
 
     if (spV) {
-      avgSpO2 = getAverageFrom(spo2Buffer, SPO2_AVG_WINDOW, spo2Index, spo2BufferFilled);
-
-      Serial.print("SpO2: "); Serial.print(avgHR); Serial.print(" & "); Serial.print(hrBuffer[hrIndex]); Serial.print(" | ");
+      Serial.print("SpO2: "); Serial.print(avgSpO2); Serial.print(" & "); Serial.print(spo2); Serial.print(" | ");
 
       lcd.print(" | O2:"); lcd.print(avgSpO2);
     } else {
